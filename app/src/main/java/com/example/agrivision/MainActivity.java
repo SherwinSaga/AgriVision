@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
-import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -13,11 +12,14 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -28,19 +30,31 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import org.tensorflow.lite.Interpreter;
 
-
-
-
 public class MainActivity extends AppCompatActivity {
 
-    Button camera, gallery;
-    ImageView imageView;
-    TextView textView;
-    int imageSize = 224;
-    Interpreter interpreter;
+    private static final int CAMERA_REQUEST_CODE = 3;
+    private static final int GALLERY_REQUEST_CODE = 1;
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int IMAGE_SIZE = 224;
+
+    private Button cameraButton, galleryButton;
+    private ImageView imageView;
+    private TextView resultTextView;
+    private TextView subtitleTextView;
+    private ProgressBar progressBar;
+    private Interpreter interpreter;
+    private Executor executor;
+
+    // Pre-allocate the buffer for image processing
+    private ByteBuffer imageBuffer;
+    private int[] pixels;
+    private float[][] outputBuffer;
+    private String[] labels = {"Brown Spot", "Healthy", "Rice Blast", "Bacterial Leaf Blight", "Narrow Brown Spot", "Sheath Blight"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,114 +67,166 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        camera = findViewById(R.id.btnCamera);
-        gallery = findViewById(R.id.btnGallery);
-        imageView = findViewById(R.id.ImageView);
-        textView = findViewById(R.id.titleText);
+        // Initialize UI components
+        initializeViews();
 
+        // Initialize TensorFlow Lite interpreter
         try {
             interpreter = new Interpreter(loadModelFile(), null);
+
+            // Pre-allocate buffers for better performance
+            imageBuffer = ByteBuffer.allocateDirect(4 * IMAGE_SIZE * IMAGE_SIZE * 3);
+            imageBuffer.order(ByteOrder.nativeOrder());
+            pixels = new int[IMAGE_SIZE * IMAGE_SIZE];
+            outputBuffer = new float[1][6];
+
+            // Create a single thread executor for background tasks
+            executor = Executors.newSingleThreadExecutor();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("AgriVision", "Failed to load model", e);
         }
 
-        camera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED){
-                    Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                    startActivityForResult(cameraIntent, 3);
-                }
-                else {
-                    requestPermissions(new String[]{Manifest.permission.CAMERA}, 100);
-                    Log.d("tag","NO ACCESS");
-                }
+        // Set click listeners
+        setupClickListeners();
+    }
+
+    private void initializeViews() {
+        cameraButton = findViewById(R.id.btnCamera);
+        galleryButton = findViewById(R.id.btnGallery);
+        imageView = findViewById(R.id.ImageView);
+        resultTextView = findViewById(R.id.titleText);
+        subtitleTextView = findViewById(R.id.subtitleText);
+        progressBar = findViewById(R.id.progressBar);
+    }
+
+    private void setupClickListeners() {
+        cameraButton.setOnClickListener(view -> {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                openCamera();
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
             }
         });
 
-        gallery.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent cameraIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(cameraIntent, 1);
-            }
+        galleryButton.setOnClickListener(view -> {
+            Intent galleryIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE);
         });
+    }
+
+    private void openCamera() {
+        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(cameraIntent, CAMERA_REQUEST_CODE);
     }
 
     private MappedByteBuffer loadModelFile() throws IOException {
-        AssetFileDescriptor fileDescriptor = getAssets().openFd("model.tflite");
-        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-        FileChannel fileChannel = inputStream.getChannel();
-        long startOffset = fileDescriptor.getStartOffset();
-        long declaredLength = fileDescriptor.getDeclaredLength();
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
-    }
+        try (AssetFileDescriptor fileDescriptor = getAssets().openFd("model.tflite");
+             FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor())) {
 
+            FileChannel fileChannel = inputStream.getChannel();
+            long startOffset = fileDescriptor.getStartOffset();
+            long declaredLength = fileDescriptor.getDeclaredLength();
+            return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+        }
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if(resultCode == RESULT_OK){
-            Bitmap image = null;
-            if(requestCode == 3) {
-                image = (Bitmap) data.getExtras().get("data");
-            } else {
-                Uri dat = data.getData();
-                try {
-                    image = MediaStore.Images.Media.getBitmap(this.getContentResolver(), dat);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        super.onActivityResult(requestCode, resultCode, data);
 
-            if (image != null) {
-                imageView.setImageBitmap(image);
-                image = Bitmap.createScaledBitmap(image, imageSize, imageSize, false);
-                classifyImage(image);
+        if (resultCode == RESULT_OK && data != null) {
+            try {
+                Bitmap image = null;
+
+                if (requestCode == CAMERA_REQUEST_CODE) {
+                    image = (Bitmap) data.getExtras().get("data");
+                } else if (requestCode == GALLERY_REQUEST_CODE) {
+                    Uri imageUri = data.getData();
+                    if (imageUri != null) {
+                        image = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
+                    }
+                }
+
+                if (image != null) {
+                    // Display original image
+                    imageView.setImageBitmap(image);
+
+                    // Start classification
+                    startImageClassification(image);
+                }
+            } catch (IOException e) {
+                Log.e("AgriVision", "Error processing image", e);
             }
         }
-        super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private void classifyImage(Bitmap image){
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4 * imageSize * imageSize * 3);
-        byteBuffer.order(ByteOrder.nativeOrder());
+    private void startImageClassification(final Bitmap originalImage) {
+        // Show loading state
+        showLoadingState();
 
-        // Extract pixel values from the image
-        int[] pixels = new int[imageSize * imageSize];  // Fix: Use int[]
-        image.getPixels(pixels, 0, imageSize, 0, 0, imageSize, imageSize);
+        // Process on background thread
+        executor.execute(() -> {
+            // Resize image for the model
+            Bitmap resizedImage = Bitmap.createScaledBitmap(originalImage, IMAGE_SIZE, IMAGE_SIZE, false);
 
-        int pixelIndex = 0;
-        for (int i = 0; i < imageSize; i++) {
-            for (int j = 0; j < imageSize; j++) {
-                int pixelValue = pixels[pixelIndex++];
+            // Classify the image
+            String result = classifyImage(resizedImage);
 
-                // Extract RGB channels and normalize to [0,1] range
-                float red = ((pixelValue >> 16) & 0xFF);
-                float green = ((pixelValue >> 8) & 0xFF);
-                float blue = (pixelValue & 0xFF);
+            // Update UI on main thread
+            runOnUiThread(() -> {
+                showResultState(result);
+            });
+        });
+    }
 
-                // Store in byteBuffer
-                byteBuffer.putFloat(red);
-                byteBuffer.putFloat(green);
-                byteBuffer.putFloat(blue);
-            }
+    private void showLoadingState() {
+        resultTextView.setVisibility(View.GONE);
+        progressBar.setVisibility(View.VISIBLE);
+        subtitleTextView.setText("Analyzing image...");
+    }
+
+    private void showResultState(String result) {
+        progressBar.setVisibility(View.GONE);
+        resultTextView.setText(result);
+        resultTextView.setVisibility(View.VISIBLE);
+        subtitleTextView.setText("Capture or Upload another image to analyze");
+    }
+
+    private String classifyImage(Bitmap image) {
+        // Clear the buffer before reuse
+        imageBuffer.rewind();
+
+        // Get image pixels
+        image.getPixels(pixels, 0, IMAGE_SIZE, 0, 0, IMAGE_SIZE, IMAGE_SIZE);
+
+        // Convert the image to floating point
+        for (int i = 0; i < IMAGE_SIZE * IMAGE_SIZE; i++) {
+            int pixel = pixels[i];
+            imageBuffer.putFloat(((pixel >> 16) & 0xFF)); // Red
+            imageBuffer.putFloat(((pixel >> 8) & 0xFF));  // Green
+            imageBuffer.putFloat((pixel & 0xFF));         // Blue
         }
 
-        // Prepare output buffer (Modify according to model's output size)
-        float[][] output = new float[1][6];  // Example: 3 output classes
-        interpreter.run(byteBuffer, output);
+        // Run inference
+        interpreter.run(imageBuffer, outputBuffer);
 
-        // Find the index with the highest probability
+        // Find class with highest confidence
         int maxIndex = 0;
-        for (int i = 0; i < output[0].length; i++) {
-            if (output[0][i] > output[0][maxIndex]) {
+        for (int i = 1; i < outputBuffer[0].length; i++) {
+            if (outputBuffer[0][i] > outputBuffer[0][maxIndex]) {
                 maxIndex = i;
             }
         }
 
-        // Labels corresponding to model's output
-        String[] labels = {"Brown Spot", "Healthy", "Rice Blast", "Bacterial Leaf Blight", "Narrow Brown Spot", "Sheath Blight"};  // Replace with actual labels
-        textView.setText("Prediction: " + labels[maxIndex]);
+        float confidence = outputBuffer[0][maxIndex] * 100;
+        return String.format("Prediction: %s (%.1f%%)", labels[maxIndex], confidence);
     }
 
+    @Override
+    protected void onDestroy() {
+        if (interpreter != null) {
+            interpreter.close();
+        }
+        super.onDestroy();
+    }
 }

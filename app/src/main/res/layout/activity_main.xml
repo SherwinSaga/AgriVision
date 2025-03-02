@@ -9,76 +9,89 @@
 
     <ImageView
         android:id="@+id/ImageView"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
-        android:layout_marginBottom="20dp"
-        android:contentDescription=""
-        tools:srcCompat="@tools:sample/avatars"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_marginTop="60dp"
+        android:contentDescription="Plant Image"
+        android:scaleType="centerCrop"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="60dp"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:srcCompat="@tools:sample/avatars" />
 
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
+    <!-- Result Container - holds both the TextView and ProgressBar -->
+    <FrameLayout
+        android:id="@+id/resultContainer"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Rice Disease Classification App"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="?android:textColorPrimary"
+        android:layout_marginTop="24dp"
+        android:layout_marginHorizontal="20dp"
         app:layout_constraintTop_toBottomOf="@id/ImageView"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="20dp" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Rice Disease Classification App"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:visibility="visible" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/subtitleText"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
         android:text="Capture or Upload an image of a rice disease"
-        android:textSize="14sp"
         android:textColor="?android:textColorPrimary"
-        app:layout_constraintTop_toBottomOf="@id/titleText"
-        app:layout_constraintStart_toStartOf="parent"
+        android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/resultContainer" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:gravity="center"
+        android:orientation="vertical"
         android:padding="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="0dp">
+        app:layout_constraintStart_toStartOf="parent">
 
         <Button
             android:id="@+id/btnCamera"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="Capture Photo"
+            android:layout_height="55dp"
             android:backgroundTint="@color/AgriButton"
+            android:text="Capture Photo"
             android:textColor="@android:color/white"
-            android:textSize="16sp"/>
+            android:textSize="16sp" />
 
-        <!-- Upload Image Button -->
         <Button
             android:id="@+id/btnGallery"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="Upload Image"
+            android:layout_height="55dp"
+            android:layout_marginTop="12dp"
             android:backgroundTint="@color/AgriButtonSecondary"
+            android:text="Upload Image"
             android:textColor="@color/AgriButton"
-            android:textSize="16sp"
-            android:layout_marginTop="10dp"/>
+            android:textSize="16sp" />
 
     </LinearLayout>
-
-
-
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>

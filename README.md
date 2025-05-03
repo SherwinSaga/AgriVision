@@ -13,13 +13,13 @@ This application leverages machine learning to assist farmers and agricultural p
 
 
 ## Installation
-1. Download the APK build of the application from this link: [AgriVision APK Build](https://drive.google.com/file/d/1HhWa7zUpah5IylmTNR8hLquiRizWuJLv/view)
+1. Download the APK build of the application from this link: [AgriVision APK Build](https://drive.google.com/drive/folders/1qSI0wcD4NIkl0JWSVID9NiZRLcLBofUf?usp=sharing)
 2. Open the APK file on the android device to install the application
 
 
 ## Model
 Due to file size limitations, the TFlite model used in this application is placed in a google drive. For cloning this repo, download the model from the link below.
-[Agrivision Ensemble Model (model.tflite)](https://drive.google.com/file/d/1G8P2tb_EM7Ud4BL2EWJIE1o1uNE-9Xmg/view)
+[Agrivision Ensemble Model (model.tflite)](https://drive.google.com/drive/folders/1C3OHxKLUSiitVCuSzhsOA2wTpQuaZryk?usp=sharing)
 
 
 ## How it Works

@@ -13,7 +13,7 @@ This application leverages machine learning to assist farmers and agricultural p
 
 
 ## Installation
-1. Download the APK build of the application from this link: [AgriVision APK Build](https://drive.google.com/drive/folders/1qSI0wcD4NIkl0JWSVID9NiZRLcLBofUf?usp=sharing)
+1. Download the APK build of the application from this link: [AgriVision APK Build](https://drive.google.com/drive/folders/1dUyQms8xShw-ivXed54CIw4zeg-0BZP7?usp=sharing)
 2. Open the APK file on the android device to install the application
 
 
